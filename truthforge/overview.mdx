@@ -1,0 +1,102 @@
+---
+title: "TruthForge Overview"
+description: "The Verifiable Intelligence Layer for Global Trade — built on Hedera Hashgraph"
+icon: "shield-check"
+---
+
+<div style={{ display: "flex", justifyContent: "center", marginBottom: "2rem" }}>
+  <img src="/images/truthforge-logo.png" alt="TruthForge" width="120" style={{ borderRadius: "16px" }} />
+</div>
+
+<img
+  src="https://img.shields.io/badge/Hedera-HCS--10-blue?logo=hedera"
+  alt="Hedera HCS-10"
+  style={{ display: "inline", marginRight: "8px" }}
+/>
+<img
+  src="https://img.shields.io/badge/HOL-5%20Agents%20Registered-green"
+  alt="HOL Agents"
+  style={{ display: "inline", marginRight: "8px" }}
+/>
+<img
+  src="https://img.shields.io/badge/Python-3.9%2B-blue?logo=python"
+  alt="Python"
+  style={{ display: "inline", marginRight: "8px" }}
+/>
+<img
+  src="https://img.shields.io/badge/React-Vite-61DAFB?logo=react"
+  alt="React"
+  style={{ display: "inline" }}
+/>
+
+## What is TruthForge?
+
+TruthForge is a **multi-agent AI verification platform** built on the Hedera blockchain. It solves one of global trade's biggest problems: **you can't trust the documents and photos that come with a shipment**.
+
+Think of it like a team of 5 specialized AI inspectors that automatically check every shipment before it arrives at port — detecting fake photos, verifying shipping documents, and writing tamper-proof receipts on the blockchain.
+
+<CardGroup cols={2}>
+  <Card title="The Problem" icon="triangle-exclamation" color="#ef4444">
+    Ports lose billions annually to document fraud, fake cargo photos, and manual clearance delays that take days instead of minutes.
+  </Card>
+  <Card title="The Solution" icon="circle-check" color="#22c55e">
+    5 AI agents working together to verify shipments in minutes, with every result permanently recorded on Hedera's blockchain.
+  </Card>
+</CardGroup>
+
+## The Core Value Proposition
+
+| Problem | TruthForge Solution |
+|:--------|:--------------------|
+| Port clearance takes days | Autonomous pre-arrival verification in minutes |
+| Document fraud is rampant | Immutable, blockchain-anchored cryptographic proof |
+| Data is siloed across carriers | Unified multi-agent network on Hedera HOL |
+| Compliance is manual | 5 autonomous agents manage the entire workflow |
+
+## Live Deployments
+
+<CardGroup cols={3}>
+  <Card title="Frontend Dashboard" icon="browser" href="https://truthforge-frontend.vercel.app">
+    Live on Vercel
+  </Card>
+  <Card title="Agent Registry" icon="network-wired" href="https://hashscan.io/testnet/topic/0.0.8161249">
+    Topic: `0.0.8161249`
+  </Card>
+  <Card title="Audit Proof" icon="link" href="https://hashscan.io/testnet/transaction/0.0.7974354">
+    View on HashScan
+  </Card>
+</CardGroup>
+
+## Tech Stack at a Glance
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Frontend: React + Vite + Tailwind CSS (Vercel)     │
+├─────────────────────────────────────────────────────┤
+│  Backend: Flask REST API + FastAPI WebSocket        │
+│           Python 3.9+ (Railway)                     │
+├─────────────────────────────────────────────────────┤
+│  AI Agents: 5 Specialized Python Agents             │
+│             Registered on Hedera HOL                │
+├─────────────────────────────────────────────────────┤
+│  Blockchain: Hedera Testnet (HCS + HTS + HOL)       │
+├─────────────────────────────────────────────────────┤
+│  Database: PostgreSQL via Supabase                  │
+├─────────────────────────────────────────────────────┤
+│  Integrations: FedEx Sandbox API, WooCommerce REST  │
+└─────────────────────────────────────────────────────┘
+```
+
+## Roadmap
+
+<Steps>
+  <Step title="Phase 1 — MVP (Current)">
+    Full AI-agent orchestration with Mock/Live Hedera toggle. All 5 agents registered and operational on Hedera Testnet.
+  </Step>
+  <Step title="Phase 2 — Prediction Markets">
+    Allow users to hedge against port delays using on-chain prediction markets for logistics outcomes.
+  </Step>
+  <Step title="Phase 3 — Mainnet & Pilot">
+    Mainnet deployment and pilot integration with Port Authorities in West Africa.
+  </Step>
+</Steps>

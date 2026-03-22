@@ -1,0 +1,257 @@
+---
+title: "Data Models"
+description: "All data structures used across TruthForge agents, API, and database"
+icon: "database"
+---
+
+## Core Models
+
+### AnalysisResult
+
+The output of the Verification Agent's 4-layer deepfake detection pipeline.
+
+```python
+AnalysisResult:
+  image_id: str              # Unique identifier for the analyzed image
+  authenticity_score: float  # 0–100 (higher = more authentic)
+  compliance_score: float    # 0–100 (higher = more compliant)
+  exif_report: ExifReport
+  lighting_report: LightingReport
+  artifact_report: ArtifactReport
+  metadata_report: MetadataReport
+  overall_assessment: str    # Human-readable summary
+  confidence_level: float    # 0–100
+  timestamp: datetime
+  hcs_transaction_id: str    # Blockchain proof reference
+  audit_reference: str       # Audit trail reference
+```
+
+### VerificationReport
+
+The combined output after cross-referencing a BOL document with carrier data.
+
+```python
+VerificationReport:
+  verification_id: str
+  bol_data: BOLData
+  shipment_data: ShipmentData | None
+  discrepancies: List[Discrepancy]
+  verification_status: str   # "PASS" | "FAIL" | "WARNING"
+  compliance_status: str     # "COMPLIANT" | "NON_COMPLIANT" | "PENDING"
+  confidence_level: float
+  timestamp: datetime
+  hcs_transaction_id: str
+  audit_reference: str
+```
+
+### BOLData (Bill of Lading)
+
+```python
+BOLData:
+  tracking_number: str
+  origin_address: Address
+  destination_address: Address
+  shipper_name: str
+  consignee_name: str
+  cargo_description: str
+  weight: float
+  declared_value: float
+  shipment_date: datetime
+  expected_delivery: datetime
+```
+
+### HCS10Message
+
+The standard message format for all agent-to-agent communication.
+
+```python
+HCS10Message:
+  message_type: MessageType  # REQUEST | RESPONSE | QUERY | NOTIFY | DISCOVER
+  sender_id: str             # e.g. "truthforge-orch-001"
+  recipient_id: str          # e.g. "truthforge-verify-001"
+  timestamp: str             # ISO 8601
+  payload: dict              # Message-specific data
+  signature: str             # Cryptographic signature
+```
+
+### UnifiedReport
+
+The final aggregated output from the Orchestrator after coordinating all agents.
+
+```python
+UnifiedReport:
+  report_id: str
+  request_id: str
+  intent: Intent
+  agent_results: Dict[str, Any]  # Results keyed by agent name
+  overall_status: str            # "SUCCESS" | "PARTIAL_SUCCESS" | "FAILED"
+  confidence_level: float        # % of agents that succeeded
+  timestamp: datetime
+  processing_time: float         # Total seconds
+  hcs_transaction_id: str
+```
+
+---
+
+## Agent Models
+
+### AgentStatus
+
+```python
+AgentStatus:
+  agent_id: str
+  status: str              # "ONLINE" | "OFFLINE" | "BUSY" | "ERROR"
+  last_heartbeat: datetime
+  requests_processed: int
+  average_response_time: float  # seconds
+  error_count: int
+```
+
+### Intent
+
+Parsed from a user's natural language message by the Orchestrator.
+
+```python
+Intent:
+  intent_type: str         # "verification" | "tracking" | "agent_status" | "general"
+  parameters: Dict         # Extracted params (shipment_id, tracking_number, etc.)
+  confidence: float        # 0.0–1.0
+  missing_parameters: List[str]  # Parameters the user still needs to provide
+```
+
+---
+
+## Port Operations Models
+
+### PortTrustReceipt
+
+```python
+PortTrustReceipt:
+  receipt_id: str
+  vessel_name: str
+  port_of_origin: str
+  port_of_destination: str
+  verification_steps: List[VerificationStep]  # 4 steps
+  current_step: int
+  overall_status: str      # "IN_PROGRESS" | "COMPLETED" | "FAILED"
+  timestamp: datetime
+  estimated_completion: datetime
+```
+
+### VerificationStep
+
+```python
+VerificationStep:
+  step_number: int         # 1–4
+  step_name: str           # e.g. "Document Submission"
+  status: str              # "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED"
+  agent_id: str
+  start_time: datetime | None
+  completion_time: datetime | None
+  result_data: dict | None
+```
+
+### PreArrivalClearanceItem
+
+```python
+PreArrivalClearanceItem:
+  clearance_id: str
+  vessel_name: str
+  tracking_number: str
+  origin_port: str
+  destination_port: str
+  estimated_arrival: datetime
+  clearance_status: str    # "PENDING" | "IN_PROGRESS" | "CLEARED" | "REJECTED"
+  priority: str            # "HIGH" | "MEDIUM" | "LOW"
+  verification_progress: float  # 0–100
+  assigned_agent: str
+```
+
+### DashboardMetrics
+
+```python
+DashboardMetrics:
+  total_clearances_today: int
+  average_clearance_time: float   # hours
+  success_rate: float             # 0–100
+  active_verifications: int
+  port_throughput: int            # vessels per day
+  compliance_rate: float          # 0–100
+  cost_per_verification: float    # HBAR
+  timestamp: datetime
+```
+
+---
+
+## Analysis Sub-Reports
+
+### ExifReport
+
+```python
+ExifReport:
+  has_exif_data: bool
+  camera_make: str | None
+  camera_model: str | None
+  capture_timestamp: datetime | None
+  gps_coordinates: Tuple[float, float] | None
+  software_used: str | None
+  tampering_indicators: List[str]
+  confidence_score: float          # 0–100
+```
+
+### LightingReport
+
+```python
+LightingReport:
+  lighting_consistency: float      # 0–100
+  shadow_analysis: dict
+  reflection_analysis: dict
+  color_temperature: float
+  anomalies_detected: List[str]
+  confidence_score: float
+```
+
+### ArtifactReport
+
+```python
+ArtifactReport:
+  ai_artifacts_detected: bool
+  artifact_locations: List[BoundingBox]
+  artifact_types: List[str]        # e.g. "blurring", "unnatural edges"
+  generation_probability: float    # 0–100
+  confidence_score: float
+```
+
+### MetadataReport
+
+```python
+MetadataReport:
+  metadata_consistent: bool
+  file_format: str
+  file_size: int
+  dimensions: Tuple[int, int]
+  compression_artifacts: bool
+  edit_history: List[str]
+  confidence_score: float
+```
+
+---
+
+## Error Response
+
+All API errors use this structure:
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable description",
+    "details": {
+      "field": "field_name",
+      "reason": "why it failed"
+    },
+    "request_id": "req-001",
+    "timestamp": "2026-02-12T10:00:00Z"
+  }
+}
+```

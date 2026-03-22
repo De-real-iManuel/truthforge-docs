@@ -1,0 +1,292 @@
+---
+title: "API Reference"
+description: "Complete REST API documentation for TruthForge backend"
+icon: "code"
+---
+
+## Base URL
+
+```
+Production:  https://your-railway-app.railway.app
+Development: http://localhost:5000
+```
+
+All endpoints return JSON. Errors follow a consistent structure (see [Error Handling](#error-handling)).
+
+---
+
+## Authentication
+
+Protected endpoints require a Bearer token in the `Authorization` header.
+
+```bash
+Authorization: Bearer <your_api_auth_token>
+```
+
+Set `API_AUTH_TOKEN` in your `.env` file. In Mock Mode, authentication is optional.
+
+---
+
+## Endpoints
+
+### POST `/api/verify`
+
+Submit a verification request. This is the main entry point — the Orchestrator Agent handles routing to the appropriate sub-agents.
+
+**Request body:**
+
+```json
+{
+  "type": "verification",
+  "image_data": "<base64-encoded image>",
+  "tracking_number": "123456789012",
+  "document_data": "<base64-encoded BOL PDF>",
+  "order_id": "WC-1234"
+}
+```
+
+<Note>
+You can submit `image_data`, `tracking_number`, or `document_data` — or any combination. The Orchestrator will route to the right agents automatically.
+</Note>
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "unified_report": {
+    "report_id": "report-req-001-1234567890",
+    "request_id": "req-001",
+    "overall_status": "SUCCESS",
+    "confidence_level": 92.5,
+    "processing_time": 1.84,
+    "hcs_transaction_id": "0.0.7974354@1234567890.123456789",
+    "agent_results": {
+      "verification_compliance": {
+        "success": true,
+        "authenticity_score": 94.2,
+        "compliance_score": 88.0
+      },
+      "carrier_adapter": {
+        "success": true,
+        "shipment_data": {
+          "current_status": "In Transit",
+          "origin": "Shanghai, CN",
+          "destination": "Los Angeles, US"
+        }
+      },
+      "evidence_settlement": {
+        "success": true,
+        "audit_reference": "AUDIT-req-001-1234567890"
+      }
+    }
+  }
+}
+```
+
+---
+
+### GET `/api/status/{request_id}`
+
+Check the status of a previously submitted verification request.
+
+**Response:**
+
+```json
+{
+  "request_id": "req-001",
+  "status": "completed",
+  "authenticity_score": 94.2,
+  "hcs_transaction_id": "0.0.7974354@...",
+  "created_at": "2026-02-12T10:00:00Z",
+  "completed_at": "2026-02-12T10:00:02Z"
+}
+```
+
+---
+
+### GET `/api/history`
+
+Retrieve past verification requests.
+
+**Query parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `limit` | integer | Max results to return (default: 20) |
+| `offset` | integer | Pagination offset (default: 0) |
+| `status` | string | Filter by status: `pending`, `completed`, `failed` |
+
+**Response:**
+
+```json
+{
+  "verifications": [
+    {
+      "request_id": "req-001",
+      "status": "completed",
+      "authenticity_score": 94.2,
+      "created_at": "2026-02-12T10:00:00Z"
+    }
+  ],
+  "total": 142,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+---
+
+### GET `/api/agents`
+
+List all registered agents and their current health status.
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_id": "truthforge-orch-001",
+      "agent_name": "Orchestrator Agent",
+      "status": "ONLINE",
+      "capabilities": ["workflow_coordination", "decision_execution", "agent_routing"],
+      "requests_processed": 1247,
+      "average_response_time": 0.42,
+      "success_rate": 98.7,
+      "last_heartbeat": "2026-02-12T10:05:00Z"
+    },
+    {
+      "agent_id": "truthforge-verify-001",
+      "agent_name": "Verification & Compliance Agent",
+      "status": "ONLINE",
+      "capabilities": ["document_validation", "compliance_assessment", "deepfake_detection"],
+      "requests_processed": 892,
+      "average_response_time": 1.23,
+      "success_rate": 97.2,
+      "last_heartbeat": "2026-02-12T10:05:00Z"
+    }
+  ],
+  "total_agents": 5,
+  "online_count": 5
+}
+```
+
+---
+
+### GET `/api/dashboard/metrics`
+
+Get operational metrics for the dashboard.
+
+**Response:**
+
+```json
+{
+  "totalVerifications": 15420,
+  "avgClearanceTime": "4.2 min",
+  "costSavings": "$2.1M",
+  "activeAgents": 5,
+  "successRate": 97.8,
+  "shipmentsToday": 342,
+  "documentsPreArrival": 289,
+  "shipmentsPreCleared": 301,
+  "timestamp": "2026-02-12T10:05:00Z"
+}
+```
+
+---
+
+### GET `/api/clearance/queue`
+
+Get the pre-arrival clearance queue — shipments currently being processed.
+
+**Response:**
+
+```json
+{
+  "queue": [
+    {
+      "shipment_id": "SHP-8821A",
+      "tracking_number": "123456789012",
+      "vessel_name": "MSC OSCAR",
+      "origin_port": "Shanghai",
+      "destination_port": "Los Angeles",
+      "estimated_arrival": "2026-02-15T18:00:00Z",
+      "clearance_status": "IN_PROGRESS",
+      "priority": "HIGH",
+      "verification_progress": 65.0
+    }
+  ],
+  "total": 28,
+  "pending": 12,
+  "in_progress": 8,
+  "cleared": 8
+}
+```
+
+---
+
+### WebSocket `/ws/tracking/{shipment_id}`
+
+Real-time tracking updates for a specific shipment (FastAPI WebSocket).
+
+```javascript
+const ws = new WebSocket('wss://your-app.railway.app/ws/tracking/SHP-8821A');
+
+ws.onmessage = (event) => {
+  const update = JSON.parse(event.data);
+  console.log(update.status, update.location);
+};
+```
+
+**Other WebSocket endpoints:**
+
+| Endpoint | Description |
+|----------|-------------|
+| `/ws/port/{port_id}/clearance` | Port clearance queue updates |
+| `/ws/dashboard/global` | Global dashboard metrics stream |
+| `/ws/metrics/{metric_type}` | Specific metric type stream |
+| `/ws/stats` | System-wide statistics |
+
+---
+
+## Error Handling
+
+All errors follow this consistent structure:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "image_data or tracking_number is required",
+    "details": {
+      "field": "image_data",
+      "reason": "missing required field"
+    },
+    "request_id": "req-001",
+    "timestamp": "2026-02-12T10:00:00Z"
+  }
+}
+```
+
+**HTTP status codes:**
+
+| Code | Meaning |
+|------|---------|
+| `400` | Bad request — invalid input |
+| `401` | Unauthorized — missing or invalid token |
+| `403` | Forbidden — insufficient permissions |
+| `404` | Not found — resource doesn't exist |
+| `429` | Too many requests — rate limit hit |
+| `500` | Internal server error |
+
+**Error codes:**
+
+| Code | Description |
+|------|-------------|
+| `VALIDATION_ERROR` | Missing or invalid request fields |
+| `AUTH_ERROR` | Authentication failure |
+| `AGENT_ERROR` | One or more agents failed |
+| `CARRIER_ERROR` | Carrier API unavailable |
+| `BLOCKCHAIN_ERROR` | Hedera transaction failed |
+| `DATABASE_ERROR` | Database operation failed |

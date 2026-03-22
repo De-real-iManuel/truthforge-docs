@@ -1,17 +1,65 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "theme": "luma",
+  "name": "TruthForge Docs",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#00D4FF",
+    "light": "#38E8FF",
+    "dark": "#0099BB"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/images/truthforge-logo.png",
+  "background": {
+    "style": "gradient"
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "TruthForge",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "truthforge/overview"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "truthforge/architecture/system-architecture",
+              "truthforge/architecture/data-models"
+            ]
+          },
+          {
+            "group": "Agent Network",
+            "pages": [
+              "truthforge/agents/agent-network"
+            ]
+          },
+          {
+            "group": "API",
+            "pages": [
+              "truthforge/api/api-reference"
+            ]
+          },
+          {
+            "group": "Frontend",
+            "pages": [
+              "truthforge/frontend/frontend"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "truthforge/deployment/deployment",
+              "truthforge/guides/hedera-integration",
+              "truthforge/guides/error-handling",
+              "truthforge/guides/testing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Mintlify Guides",
         "groups": [
           {
             "group": "Getting started",
@@ -71,52 +119,57 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "Live Demo",
+          "href": "https://truthforge-frontend.vercel.app",
+          "icon": "browser"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub",
+          "href": "https://github.com/Ai-Tech-Haven/truthforge",
+          "icon": "github"
+        },
+        {
+          "anchor": "HashScan Proof",
+          "href": "https://hashscan.io/testnet/transaction/0.0.7974354",
+          "icon": "link"
         }
       ]
     }
   },
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "https://truthforge-frontend.vercel.app"
   },
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "GitHub",
+        "href": "https://github.com/Ai-Tech-Haven/truthforge"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Live Demo",
+      "href": "https://truthforge-frontend.vercel.app"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/Ai-Tech-Haven/truthforge",
+      "x": "https://x.com/mintlify"
     }
   }
 }

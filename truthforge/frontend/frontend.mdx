@@ -1,0 +1,159 @@
+---
+title: "Frontend Application"
+description: "React + Vite dashboard for port operators, merchants, and carriers"
+icon: "browser"
+---
+
+## Overview
+
+The TruthForge frontend is a **React + Vite** single-page application deployed on Vercel. It's fully responsive — adapting its layout for desktop, tablet, and mobile devices.
+
+**Live URL:** [https://truthforge-frontend.vercel.app](https://truthforge-frontend.vercel.app)
+
+## Pages & Portals
+
+```mermaid
+graph TD
+    LP[Landing Page<br/>Public marketing page]
+    WP[Welcome / Sign In<br/>Authentication entry]
+
+    subgraph "Authenticated Portals"
+        DP[Dashboard<br/>Global metrics + risk map]
+        TP[Tracking Page<br/>Port Trust Receipts + clearance queue]
+        AP[Agents Page<br/>Agent registry + health status]
+        MP[Merchant Portal<br/>WooCommerce order management]
+        CP[Carrier Portal<br/>Shipment management]
+        PP[Port Authority Portal<br/>Clearance operations]
+        VP[Verification Page<br/>Submit verification requests]
+        SP[Settings Page<br/>Configuration]
+    end
+
+    LP --> WP
+    WP --> DP & TP & AP & MP & CP & PP & VP & SP
+```
+
+---
+
+## Key Components
+
+### Agent Registry (Responsive)
+
+The agent registry adapts based on screen size:
+
+```mermaid
+graph LR
+    subgraph "Desktop ≥ 768px"
+        T["Agent Registry Table<br/>─────────────────────<br/>Agent ID | Status | Requests<br/>Avg Response | Success Rate<br/>Last Heartbeat"]
+    end
+
+    subgraph "Mobile < 768px"
+        C1["orch-001 Card<br/>Status: ONLINE ✅"]
+        C2["verify-001 Card<br/>Status: ONLINE ✅"]
+        C3["carrier-001 Card<br/>Status: ONLINE ✅"]
+    end
+```
+
+### Port Trust Receipt Card
+
+Displayed during active verifications. Shows the 4-step verification process with real-time status updates.
+
+```mermaid
+flowchart LR
+    S1["Step 1<br/>📄 Document<br/>Submission<br/>✅ Complete"]
+    S2["Step 2<br/>🔍 AI Analysis<br/>4-Layer Scan<br/>⏳ In Progress"]
+    S3["Step 3<br/>🚚 Carrier<br/>Verification<br/>⏸ Pending"]
+    S4["Step 4<br/>⛓️ HCS<br/>Proof<br/>⏸ Pending"]
+
+    S1 --> S2 --> S3 --> S4
+```
+
+### Global Trade Risk Command Center
+
+The main dashboard component showing:
+- **Global Shipment Map** — route visualization with color-coded risk status
+- **Active Shipment Feed** — live event stream with timestamps
+- **AI Risk Alerts** — severity-ranked alerts (high/medium/low)
+
+```mermaid
+graph TD
+    subgraph "Dashboard Layout — Desktop 3 columns"
+        MAP["🌍 Global Shipment Map<br/>Route visualization<br/>Green/Yellow/Red status"]
+        FEED["📡 Active Shipment Feed<br/>Live events<br/>Verified/Flagged/Completed"]
+        ALERTS["⚠️ AI Risk Alerts<br/>High/Medium/Low severity<br/>Risk/Compliance/Inspection"]
+    end
+
+    MAP --- FEED --- ALERTS
+```
+
+### Pre-Clearance Request Modal
+
+Merchants and port operators can submit pre-clearance requests with integrated wallet payment.
+
+```mermaid
+flowchart TD
+    BTN["Click 'Request Pre-Clearance'"]
+    BTN --> WC{Wallet Connected?}
+    WC -->|No| WARN["⚠️ Warning: Connect wallet to proceed"]
+    WC -->|Yes| FORM["Fill Request Form<br/>Transport mode: Sea / Air / Land<br/>Origin & Destination ports<br/>Cargo details"]
+    FORM --> COST["Calculate Estimated Cost<br/>Sea: per container<br/>Air: per cargo unit<br/>Land: flat rate"]
+    COST --> CONFIRM["Payment Confirmation Dialog<br/>Final cost + wallet address"]
+    CONFIRM -->|Confirm| TX["Process Transaction<br/>→ HCS submission"]
+    TX --> RECEIPT["Port Trust Receipt Generated"]
+```
+
+### Container Intelligence Panel
+
+Displays container-level verification data for a vessel:
+
+- **Vessel Trust Score** (0–100) — calculated from container verification rate
+- **Container Visualization Grid** — color-coded squares (green = verified, red = flagged, gray = pending)
+- **Container Verification Table** — scrollable list with status and risk level badges
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 18 + TypeScript |
+| Build tool | Vite |
+| Styling | Tailwind CSS |
+| UI Components | shadcn/ui |
+| State management | React Context API |
+| Routing | React Router |
+| WebSocket | Native WebSocket API |
+| Testing | Vitest |
+| Deployment | Vercel |
+
+## Environment Variables
+
+```bash
+# .env.production
+VITE_API_BASE_URL=https://your-railway-app.railway.app
+VITE_WS_BASE_URL=wss://your-railway-app.railway.app
+VITE_MOCK_MODE=false
+```
+
+## Local Development
+
+```bash
+cd truthforge_frontend/truthforge-logistics-verified-main
+npm install
+npm run dev
+# → http://localhost:8080
+```
+
+## Build & Deploy
+
+```bash
+npm run build
+# Vercel auto-deploys on push to main branch
+```
+
+The `vercel.json` at the project root handles SPA routing redirects:
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```

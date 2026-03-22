@@ -1,0 +1,192 @@
+---
+title: "Hedera Integration"
+description: "How TruthForge uses Hedera HCS, HTS, and HOL for immutable verification"
+icon: "link"
+---
+
+## Why Hedera?
+
+TruthForge uses Hedera Hashgraph because it provides:
+
+- **Finality in seconds** — transactions are confirmed in 3–5 seconds, not minutes
+- **Low, predictable fees** — fractions of a cent per transaction
+- **Immutability** — once written, records cannot be altered
+- **Public verifiability** — anyone can verify a transaction on HashScan
+
+---
+
+## Hedera Services Used
+
+```mermaid
+graph TD
+    subgraph "Hedera Testnet"
+        HCS["HCS — Hedera Consensus Service<br/>Immutable message timestamping<br/>Topic: 0.0.8161249"]
+        HOL["HOL — Hashgraph Online Protocol<br/>Agent registry and discovery"]
+        HTS["HTS — Hedera Token Service<br/>Future: HBAR payments for verification fees"]
+    end
+
+    subgraph "TruthForge Usage"
+        MSG["Agent-to-agent messages<br/>Verification results<br/>Audit trails"]
+        REG["5 agent registrations<br/>Capability discovery<br/>Health monitoring"]
+        PAY["Verification fee payments<br/>(Phase 2 roadmap)"]
+    end
+
+    MSG --> HCS
+    REG --> HOL
+    PAY --> HTS
+```
+
+---
+
+## HCS — Hedera Consensus Service
+
+HCS is used to create an **immutable, timestamped record** of every verification event.
+
+### How it works
+
+```mermaid
+sequenceDiagram
+    participant AG as TruthForge Agent
+    participant HC as HederaClient
+    participant HCS as Hedera HCS Topic
+    participant HS as HashScan Explorer
+
+    AG->>HC: submit_message(HCS10Message)
+    HC->>HCS: Submit to topic 0.0.8161249
+    HCS-->>HC: transaction_id + consensus_timestamp
+    HC-->>AG: "0.0.7974354@1234567890.123456789"
+    AG->>DB: Store hcs_transaction_id
+    Note over HS: Anyone can verify at hashscan.io
+```
+
+### What gets written to HCS
+
+Every significant event creates an HCS record:
+
+| Event | Agent | What's recorded |
+|-------|-------|----------------|
+| Agent registration | All agents | Agent ID, capabilities, timestamp |
+| Image analysis complete | Verification Agent | Authenticity score, report hash |
+| Carrier data retrieved | Carrier Agent | Tracking number, normalized data hash |
+| Audit trail created | Evidence Agent | Verification ID, audit reference |
+| Orchestrator report | Orchestrator | Report ID, overall status, agent count |
+| Agent failure | Orchestrator | Failed agent ID, error type |
+
+---
+
+## HOL — Hashgraph Online Protocol
+
+HOL is Hedera's agent registry — it's how TruthForge's 5 agents announce themselves to the network and discover each other.
+
+### Agent Registration
+
+```mermaid
+flowchart TD
+    INIT["System Startup"]
+    INIT --> AUTH["HederaClient.authenticate()<br/>Account: 0.0.7974354"]
+    AUTH --> REG1["Register orch-001"]
+    AUTH --> REG2["Register verify-001"]
+    AUTH --> REG3["Register carrier-001"]
+    AUTH --> REG4["Register registry-001"]
+    AUTH --> REG5["Register evidence-001"]
+
+    REG1 & REG2 & REG3 & REG4 & REG5 --> HOL["HOL Registry<br/>Topic: 0.0.8161249"]
+    HOL --> VERIFY["Verify count == 5<br/>Log success"]
+```
+
+### DISCOVER Message Flow
+
+When an agent needs to find another agent with specific capabilities:
+
+```mermaid
+sequenceDiagram
+    participant OA as Orchestrator
+    participant RA as Registry Agent
+    participant HOL as HOL Registry
+
+    OA->>RA: HCS10Message(type=DISCOVER, capabilities=["deepfake_detection"])
+    RA->>HOL: query_agents(capabilities=["deepfake_detection"])
+    HOL-->>RA: [verify-001]
+    RA-->>OA: HCS10Message(type=RESPONSE, agents=[verify-001])
+    Note over RA: Result cached with TTL to reduce HOL queries
+```
+
+---
+
+## HCS-10 Message Protocol
+
+All agent communication follows the HCS-10 standard:
+
+### Message Types
+
+| Type | Direction | Purpose |
+|------|-----------|---------|
+| `REQUEST` | Agent → Agent | Ask another agent to do something |
+| `RESPONSE` | Agent → Agent | Reply to a REQUEST |
+| `QUERY` | Agent → HOL | Ask the registry for information |
+| `NOTIFY` | Agent → HCS | Broadcast an event (no reply expected) |
+| `DISCOVER` | Agent → Registry | Find agents with specific capabilities |
+
+### Message Signature
+
+Every message is cryptographically signed to prevent tampering:
+
+```python
+# Signature generation (simplified)
+import hmac, hashlib, json
+
+def generate_signature(message: HCS10Message, secret_key: str) -> str:
+    content = json.dumps({
+        "type": message.message_type,
+        "sender": message.sender_id,
+        "recipient": message.recipient_id,
+        "timestamp": message.timestamp,
+        "payload": message.payload
+    }, sort_keys=True)
+    
+    return hmac.new(
+        secret_key.encode(),
+        content.encode(),
+        hashlib.sha256
+    ).hexdigest()
+```
+
+---
+
+## Live vs Mock Mode
+
+```mermaid
+flowchart LR
+    subgraph "Mock Mode"
+        MH["MockHederaClient"]
+        MH --> FTX["Returns fake TX ID<br/>mock-tx-1234567890"]
+        MH --> FCOST["Tracks simulated costs<br/>No real HBAR spent"]
+    end
+
+    subgraph "Live Mode"
+        LH["HederaClient"]
+        LH --> REAL["Submits to Hedera Testnet<br/>Real transaction ID"]
+        LH --> WAIT["Waits for receipt<br/>3–5 second finality"]
+        LH --> COST["Tracks real HBAR costs<br/>Validates balance first"]
+    end
+```
+
+### Switching modes
+
+```bash
+# .env
+MOCK_MODE=true   # Development — no blockchain costs
+MOCK_MODE=false  # Production — real Hedera transactions
+```
+
+---
+
+## Viewing Proofs on HashScan
+
+Every verification generates a publicly verifiable blockchain proof:
+
+1. Get the `hcs_transaction_id` from any API response
+2. Visit: `https://hashscan.io/testnet/transaction/{hcs_transaction_id}`
+3. See the exact timestamp, message content, and consensus proof
+
+**Example:** [View TruthForge audit record on HashScan](https://hashscan.io/testnet/transaction/0.0.7974354)

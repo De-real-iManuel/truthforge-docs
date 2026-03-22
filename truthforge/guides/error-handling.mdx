@@ -1,0 +1,171 @@
+---
+title: "Error Handling & Resilience"
+description: "How TruthForge handles failures, retries, and graceful degradation"
+icon: "shield"
+---
+
+## Error Categories
+
+TruthForge classifies errors into 8 categories, each with a specific handling strategy.
+
+```mermaid
+graph TD
+    ERR["Incoming Error"]
+
+    ERR --> V["Validation Error<br/>Bad input data"]
+    ERR --> A["Auth Error<br/>Invalid credentials"]
+    ERR --> N["Network Error<br/>Connection issues"]
+    ERR --> R["Rate Limit Error<br/>API quota exceeded"]
+    ERR --> B["Blockchain Error<br/>Hedera transaction failed"]
+    ERR --> AG["Agent Error<br/>Agent unavailable"]
+    ERR --> I["Integration Error<br/>FedEx / WooCommerce down"]
+    ERR --> S["System Error<br/>Internal server error"]
+
+    V -->|"400 — fail fast"| RESP
+    A -->|"401/403 — no retry"| RESP
+    N -->|"Retry 3x with backoff"| RESP
+    R -->|"Respect Retry-After"| RESP
+    B -->|"Retry 3x + log hash"| RESP
+    AG -->|"Try alternate agent"| RESP
+    I -->|"Retry + use mock data"| RESP
+    S -->|"500 — alert + log"| RESP
+
+    RESP["Structured JSON Error Response"]
+```
+
+---
+
+## Retry Strategy
+
+### Exponential Backoff
+
+Network errors, blockchain failures, and integration errors all use exponential backoff:
+
+```mermaid
+sequenceDiagram
+    participant SYS as System
+    participant API as External API
+
+    SYS->>API: Attempt 1
+    API-->>SYS: ❌ Error
+
+    Note over SYS: Wait 1 second
+
+    SYS->>API: Attempt 2
+    API-->>SYS: ❌ Error
+
+    Note over SYS: Wait 2 seconds
+
+    SYS->>API: Attempt 3
+    API-->>SYS: ❌ Error
+
+    Note over SYS: Wait 4 seconds
+
+    SYS->>API: Attempt 4 (final)
+    API-->>SYS: ✅ Success OR Final Failure
+```
+
+**Retry configuration:**
+
+| Error Type | Max Retries | Backoff | Notes |
+|------------|-------------|---------|-------|
+| Network errors | 3 | 1s → 2s → 4s | Log each attempt |
+| Blockchain errors | 3 | 1s → 2s → 4s | Log transaction hash |
+| Rate limit errors | Varies | Respect `Retry-After` header | Add jitter |
+| Integration errors | 3 | 1s → 2s → 4s | Cache successful responses |
+
+---
+
+## Agent Failure Handling
+
+When an agent fails, the Orchestrator doesn't crash — it degrades gracefully.
+
+```mermaid
+flowchart TD
+    OA["Orchestrator calls Agent X"]
+    OA --> FAIL{Agent X fails?}
+
+    FAIL -->|No| SUCCESS["Use result normally"]
+    FAIL -->|Yes| LOG["Log failure to DB<br/>+ HCS timestamp"]
+    LOG --> ALT{Alternate agent<br/>available?}
+    ALT -->|Yes| RETRY["Route to alternate agent"]
+    RETRY --> SUCCESS
+    ALT -->|No| PARTIAL["Return partial results<br/>Mark agent as failed in report"]
+    PARTIAL --> REPORT["UnifiedReport with<br/>overall_status: PARTIAL_SUCCESS"]
+```
+
+**Key behavior:**
+- The Orchestrator always returns a response, even if some agents fail
+- `confidence_level` in the UnifiedReport reflects the % of agents that succeeded
+- Failed agents are logged to the `audit_trails` table with full error details
+- The Registry Agent detects failures and updates agent status to `ERROR`
+
+---
+
+## Circuit Breaker Pattern
+
+For repeated failures from the same service, TruthForge implements a circuit breaker to stop hammering a failing service:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Closed: System starts
+    Closed --> Open: Error rate > 50%
+    Open --> HalfOpen: After timeout period
+    HalfOpen --> Closed: Test request succeeds
+    HalfOpen --> Open: Test request fails
+    Closed --> Closed: Normal operation
+```
+
+---
+
+## Logging Strategy
+
+All logs are structured JSON with consistent fields:
+
+```json
+{
+  "timestamp": "2026-02-12T10:00:00Z",
+  "level": "ERROR",
+  "component": "truthforge-verify-001",
+  "request_id": "req-001",
+  "message": "EXIF analysis failed for image img-001",
+  "context": {
+    "image_id": "img-001",
+    "error": "PIL.UnidentifiedImageError",
+    "retry_count": 2
+  }
+}
+```
+
+**Log levels:**
+
+| Level | When to use |
+|-------|-------------|
+| `DEBUG` | Detailed diagnostics (dev only) |
+| `INFO` | Agent actions, request completions |
+| `WARNING` | Retries, degraded functionality |
+| `ERROR` | Operation failures |
+| `CRITICAL` | System-wide failures needing immediate attention |
+
+**Log retention:**
+
+| Environment | Retention |
+|-------------|-----------|
+| Development | 7 days |
+| Production | 30 days |
+| Critical errors | 90 days |
+
+---
+
+## Mock Mode Fallback
+
+If Live Mode fails to initialize (e.g., missing Hedera credentials), the system can fall back to Mock Mode:
+
+```python
+# In agents/config.py
+if not config.hedera_account_id and not config.mock_mode:
+    logger.warning("No Hedera credentials — falling back to Mock Mode")
+    config.mock_mode = True
+```
+
+This ensures the system always starts, even in degraded environments.

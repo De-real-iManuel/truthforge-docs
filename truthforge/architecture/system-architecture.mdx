@@ -1,0 +1,282 @@
+---
+title: "System Architecture"
+description: "Full architecture overview of TruthForge — from user request to blockchain proof"
+icon: "diagram-project"
+---
+
+## High-Level Architecture
+
+TruthForge is built as a **layered system**. A user request flows from the browser, through a REST API, into an orchestrator that coordinates 5 specialized AI agents, and ends with a tamper-proof record on the Hedera blockchain.
+
+```mermaid
+graph TB
+    subgraph "User Layer"
+        U1[Merchant / WooCommerce]
+        U2[Port Operator Dashboard]
+        U3[Carrier Portal]
+    end
+
+    subgraph "Frontend — Vercel"
+        FE[React + Vite SPA<br/>Tailwind CSS]
+    end
+
+    subgraph "API Layer — Railway"
+        FL[Flask REST API<br/>Port 5000]
+        FA[FastAPI WebSocket<br/>Real-time Updates]
+    end
+
+    subgraph "Agent Network — HOL Registered"
+        OA[🧠 Orchestrator Agent<br/>truthforge-orch-001]
+        VA[🔍 Verification Agent<br/>truthforge-verify-001]
+        CA[🚚 Carrier Adapter Agent<br/>truthforge-carrier-001]
+        RA[📡 Registry Agent<br/>truthforge-registry-001]
+        EA[📜 Evidence Agent<br/>truthforge-evidence-001]
+    end
+
+    subgraph "Data Layer"
+        DB[(PostgreSQL<br/>Supabase)]
+    end
+
+    subgraph "Blockchain Layer — Hedera Testnet"
+        HCS[HCS Topics<br/>Immutable Messaging]
+        HOL[HOL Registry<br/>Agent Discovery]
+        HSC[HashScan<br/>Public Explorer]
+    end
+
+    subgraph "External APIs"
+        FX[FedEx Sandbox API]
+        WC[WooCommerce REST API]
+    end
+
+    U1 & U2 & U3 --> FE
+    FE -->|REST| FL
+    FE -->|WebSocket| FA
+    FL --> OA
+    OA --> VA & CA & RA & EA
+    VA & CA & RA & EA --> DB
+    VA & CA & EA -->|HCS-10 Messages| HCS
+    OA --> HOL
+    HCS --> HSC
+    CA --> FX
+    OA --> WC
+```
+
+## Request Lifecycle
+
+This is what happens from the moment a user submits a verification request to when they receive a result.
+
+```mermaid
+sequenceDiagram
+    participant U as User / Frontend
+    participant API as Flask API
+    participant OA as Orchestrator Agent
+    participant VA as Verification Agent
+    participant CA as Carrier Agent
+    participant EA as Evidence Agent
+    participant HCS as Hedera HCS
+    participant DB as PostgreSQL
+
+    U->>API: POST /api/verify (image + tracking number)
+    API->>OA: process_request()
+    OA->>OA: parse_intent() → route_request()
+
+    par Parallel Agent Execution
+        OA->>VA: analyze_image() + verify_document()
+        VA->>VA: EXIF → Lighting → AI Artifacts → Metadata
+        VA-->>OA: authenticity_score + compliance_report
+    and
+        OA->>CA: query_shipment(tracking_number)
+        CA->>CA: normalize_tracking_data()
+        CA-->>OA: unified_shipment_data
+    end
+
+    OA->>EA: create_audit_trail(results)
+    EA->>HCS: submit_consensus() → transaction_id
+    HCS-->>EA: consensus_timestamp
+    EA-->>OA: audit_reference + hcs_tx_id
+
+    OA->>DB: store verification + audit trail
+    OA->>OA: aggregate_results() → UnifiedReport
+    OA-->>API: UnifiedReport
+    API-->>U: JSON response with score + HCS proof
+```
+
+## Component Breakdown
+
+### The 5-Agent Network
+
+Each agent is independently registered on Hedera's HOL (Hashgraph Online) protocol, making them discoverable and independently scalable.
+
+```mermaid
+graph LR
+    subgraph "Agent Capabilities"
+        OA["🧠 Orchestrator<br/>orch-001<br/>─────────────<br/>• Parse natural language<br/>• Route requests<br/>• Aggregate results<br/>• Coordinate workflows"]
+        VA["🔍 Verification<br/>verify-001<br/>─────────────<br/>• EXIF analysis<br/>• Lighting detection<br/>• AI artifact scan<br/>• BOL validation"]
+        CA["🚚 Carrier Adapter<br/>carrier-001<br/>─────────────<br/>• FedEx integration<br/>• UPS / DHL support<br/>• Data normalization<br/>• Rate limit handling"]
+        RA["📡 Registry<br/>registry-001<br/>─────────────<br/>• Agent discovery<br/>• Health monitoring<br/>• HOL sync<br/>• TTL caching"]
+        EA["📜 Evidence<br/>evidence-001<br/>─────────────<br/>• HCS submission<br/>• Audit references<br/>• HBAR cost tracking<br/>• Retry logic"]
+    end
+
+    OA --> VA & CA & RA & EA
+```
+
+### 4-Layer Deepfake Detection
+
+The Verification Agent runs every cargo photo through 4 independent analysis layers. Each layer produces a confidence score; they are combined into a final **Authenticity Score (0–100)**.
+
+```mermaid
+flowchart LR
+    IMG[📷 Cargo Photo] --> L1
+
+    subgraph "4-Layer Pipeline"
+        L1["Layer 1: EXIF Analysis<br/>Camera make/model<br/>GPS coordinates<br/>Capture timestamp<br/>Tampering indicators"]
+        L2["Layer 2: Lighting Analysis<br/>Shadow consistency<br/>Color temperature<br/>Reflection patterns<br/>Anomaly detection"]
+        L3["Layer 3: AI Artifact Detection<br/>Unnatural edges<br/>Blurring patterns<br/>Generation probability<br/>Bounding box mapping"]
+        L4["Layer 4: Metadata Verification<br/>File format integrity<br/>Compression artifacts<br/>Edit history<br/>Dimension consistency"]
+    end
+
+    L1 --> SCORE
+    L2 --> SCORE
+    L3 --> SCORE
+    L4 --> SCORE
+
+    SCORE["🎯 Authenticity Score<br/>0 – 100<br/>+ Compliance Report"]
+    SCORE --> HCS["⛓️ HCS Timestamp"]
+
+    L1 --> L2 --> L3 --> L4
+```
+
+### HCS-10 Messaging Protocol
+
+All agent-to-agent communication uses the HCS-10 standard — every message is submitted to a Hedera topic, creating an immutable audit trail.
+
+```mermaid
+graph TD
+    MSG["HCS10Message<br/>─────────────────<br/>message_type: REQUEST/RESPONSE/<br/>QUERY/NOTIFY/DISCOVER<br/>sender_id: agent ID<br/>recipient_id: agent ID<br/>timestamp: ISO 8601<br/>payload: JSON dict<br/>signature: cryptographic hash"]
+
+    MSG -->|submit_message| TOPIC["Hedera HCS Topic<br/>0.0.8161249"]
+    TOPIC -->|returns| TXN["Transaction ID<br/>e.g. 0.0.7974354@..."]
+    TXN -->|stored in| DB["PostgreSQL<br/>audit_trails table"]
+    TXN -->|viewable on| HS["HashScan Explorer"]
+```
+
+## Database Schema
+
+```mermaid
+erDiagram
+    VERIFICATIONS {
+        string id PK
+        string request_id UK
+        string verification_type
+        string status
+        string tracking_number
+        float authenticity_score
+        float compliance_score
+        json verification_result
+        string hcs_transaction_id
+        string audit_reference
+        bool mock_mode
+        datetime created_at
+    }
+
+    SHIPMENTS {
+        string id PK
+        string shipment_id UK
+        string tracking_number
+        string carrier
+        string origin_port
+        string destination_port
+        string clearance_status
+        string verification_id FK
+        datetime estimated_arrival
+    }
+
+    AGENT_STATUS {
+        int id PK
+        string agent_id
+        string agent_name
+        string status
+        json capabilities
+        int requests_processed
+        float success_rate
+        datetime last_heartbeat
+    }
+
+    PORT_TRUST_RECEIPTS {
+        string id PK
+        string receipt_id UK
+        string shipment_id FK
+        string clearance_status
+        json agent_signatures
+        string hedera_tx_ref
+        datetime issued_at
+    }
+
+    AUDIT_TRAILS {
+        int id PK
+        string audit_id UK
+        string verification_id FK
+        string agent_id
+        string action
+        json input_data
+        json output_data
+        string hcs_transaction_id
+        datetime timestamp
+    }
+
+    DASHBOARD_METRICS {
+        int id PK
+        int total_verifications
+        float avg_clearance_time
+        float success_rate
+        int active_agents
+        string date
+    }
+
+    VERIFICATIONS ||--o{ SHIPMENTS : "has"
+    VERIFICATIONS ||--o{ AUDIT_TRAILS : "generates"
+    SHIPMENTS ||--o{ PORT_TRUST_RECEIPTS : "produces"
+```
+
+## Deployment Architecture
+
+```mermaid
+graph TB
+    subgraph "Production Infrastructure"
+        subgraph "Vercel — Frontend CDN"
+            FE[React SPA<br/>Global Edge Network]
+        end
+
+        subgraph "Railway — Backend"
+            GU[Gunicorn WSGI Server]
+            FL[Flask App<br/>main:app]
+            GU --> FL
+        end
+
+        subgraph "Supabase — Database"
+            PG[(PostgreSQL)]
+        end
+
+        subgraph "Hedera Testnet"
+            HCS[HCS Topics]
+            HOL[HOL Registry]
+        end
+    end
+
+    FE -->|HTTPS REST| GU
+    FL -->|SQLAlchemy ORM| PG
+    FL -->|Hedera SDK| HCS & HOL
+```
+
+## Mock vs Live Mode
+
+TruthForge supports two operating modes, switchable via a single environment variable.
+
+```mermaid
+flowchart TD
+    ENV{MOCK_MODE=?}
+
+    ENV -->|true| MOCK["🧪 Mock Mode<br/>─────────────────────<br/>• Fake HCS transaction IDs<br/>• Simulated carrier data<br/>• No HBAR costs<br/>• SQLite in-memory DB<br/>• Instant responses<br/>• Safe for development"]
+
+    ENV -->|false| LIVE["🔴 Live Mode<br/>─────────────────────<br/>• Real Hedera Testnet TXNs<br/>• Real FedEx API calls<br/>• HBAR balance required<br/>• PostgreSQL (Supabase)<br/>• Transaction receipts waited<br/>• Exponential backoff retries"]
+```
